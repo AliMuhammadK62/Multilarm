@@ -19,9 +19,9 @@ Configuration	4
 Configuration file	4
 Configuration settings	4
 Bugs	10
-Tips and Tricks	10
+Tips and Tricks	11
 Console Key Commands	11
-Command-line Arguments	11
+Command-line Arguments	12
 Download Links (folder locations)	12
 Binaries	12
 Installer	12
@@ -46,11 +46,12 @@ Back to Table of contents
 
 Features
 
-1.	Play any audio (.MP3 or .WAV) file or a combination of files at (same or different) specified times every day through the year
+1.	Play any audio (MPEG (1.0, 2.0 and 2.5 layer 3 (MP3)), MP1, MP2, OGG, FLAC, WAV and AIFF) file or a combination of files at (same or different) specified times every day through the year
 2.	Play an ambient sound for a specific duration at a specified interval in between (1)
 3.	Display a specified text on the console associated with a particular specified time
 4.	Play the console text as audio in user supplied voice recordings
-5.	Multi-platform support: Windows, Linux, MacOS
+5.	Record unique words from the console to be used to play back console text
+6.	Multi-platform support: Windows, Linux, MacOS
 
 Back to Table of contents
 
@@ -78,14 +79,14 @@ sudo systemctl daemon-reload
 Back to Table of contents
 
 MacOS
-Please copy the files from the Binaries folder along with the unzipped resource file. The PDB file included in the binaries are not essential for runtime, but helps with pinpointing the bug in the code, and therefore, should be copied in the application root directory. I will further update installation instruction when I can test this on a MacOS system (Multilarm was not tested on a MacOS system).
+Please copy the files from the Binaries folder along with the unzipped resource file. The PDB file included in the binaries are not essential for runtime, but helps with pinpointing the bug in the code, and therefore, should be copied in the application root directory. The .dylib modules should be copied to /usr/local/lib I will further update installation instruction when I can test this on a MacOS system (Multilarm was not tested on a MacOS system).
 
 Back to Table of contents
 
 Configuration
 
 Configuration file
-Configuration settings are saved at Multilarm.config.xml file, which should be located at the program root directory. The program loads configuration settings at its boot and in case of a missing tag or invalid entries for True/False values, would overwriting the values in the file. You yourself are responsible for backing up any existing configuration at risk of being overwritten in case of a missing tag or corrupt values. In case of a missing configuration file, the application will create one with default settings stored inside the application. Therefore, the application must have write-access to its root directory and if you need to reset the configuration to default, just delete the existing file. The default settings configure the application to play Adhan and relevant audios throughout the day and throughout the year according to UK (Sheffield) data and use default settings for ambient sound (for 10 seconds every 3 minutes).
+Configuration settings are saved at Multilarm.config.xml file, which should be located at the program root directory. The program loads configuration settings at its boot and in case of a missing tag or invalid entries for True/False values, would be overwriting the values in the file. You yourself are responsible for backing up any existing configuration at risk of being overwritten in case of a missing tag or corrupt values. In case of a missing configuration file, the application will create one with default settings stored inside the application. Therefore, the application must have write-access to its root directory and if you need to reset the configuration to default, just delete the existing file. The default settings configure the application to play Adhan and relevant audios throughout the day and throughout the year according to UK (Sheffield) data and use default settings for ambient sound (for 10 seconds every 3 minutes).
 
 Back to Table of contents
 
@@ -185,7 +186,11 @@ Use: Specifies the audio file formats for the word audio library. Only the file(
 Default value: “mp3”
 23.	AudioDevice
 Value type: Numbers (-1 or higher)
-Use: Specifies the audio device to be used for playback. -1 denotes system-default audio device, 0 disables audio playback and 1 to onwards are 1-based indices for real output devices.
+Use: Specifies the audio device to be used for playback. -1 denotes system-default audio device, 0 disables audio playback and 1 to onwards are 1-based indices for audio output devices present in the system.
+Default value: “-1”
+24.	AudioDevice
+Value type: Numbers (-1 or higher)
+Use: Specifies the audio device to be used for recording TTS audio. -1 denotes system-default audio device and 0 to onwards are 0-based indices for recording devices present in the system.
 Default value: “-1”
 
 Back to Table of contents
@@ -200,7 +205,7 @@ Tips and Tricks
 
 •	If you have got a list of timetables (e.g. permanent Salat calendar), use Microsoft Word to properly format the date and time, removing any unwanted spaces and characters, line feeds etc. Use special character placeholders in Find/Replace box (e.g. ^p for line feed).
 •	It is possible in Linux / Raspberry Pi to auto-start the application at boot in a headless mode and therefore obviate the need for further interaction with the system once it is properly set up.
-•	To set up a word audio library to read aloud any text from the console screen, you need to first identify unique words in your text (TextData (18)). There are quite a few online tools (e.g. https://design215.com/toolbox/wordlist.php). Thereafter those words can be individually recorded with appropriate pause following each word (probably 250 milliseconds?). Alternatively, all the words can be recorded in a long audio files, which can later be clipped with and audio editing tool (e.g. Audible) and named as the word contained within.
+•	While recording unique words for TTS library using the Control+R in the console, please ensure appropriate pause following each word (probably 250 milliseconds?) to make playback more clear and natural-sounding.
 •	For text-to-speech covering any time data, you would need to provide recorded audio for word covering number 0 to 20, 30, 40 and 50 – a total of 23 files.
 •	Please use 29-day month for February if using with the whole year data and ensure any daylight savings adjustments are applied after March or October finished in the UK.
 •	Please include MultilarmError.log and Multilarm.config.xml from the application root directory to report any bugs.
@@ -212,6 +217,7 @@ Console Key Commands
 Control + T: Test play any random audio file from a random folder in AlarmPath (13) matching AlarmFileFormat (14)
 Control + A: Test play AmbienceFile (10) for AmbienceDuration (11) 
 Control + S: Test play current display text from TTSPath (21) matching TTSFileFormat (22) 
+Control + R: Initiate console interface to record unique words from the TextData (18) to be used to play back console text. The console interface is self-explanatory. The audio is saved in the selected format in TTSPath (21)
 Control + X: Exit program
 
 Back to Table of contents
