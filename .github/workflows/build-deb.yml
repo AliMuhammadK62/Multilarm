@@ -87,8 +87,8 @@ EOL
           dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
           apt-ftparchive release . > Release
 
-          # Import GPG key and sign
-          echo "${{ secrets.APT_GPG_KEY }}" > private.key
+          # Import GPG key from base64 secret and sign
+          echo "${{ secrets.APT_GPG_KEY_B64 }}" | base64 --decode > private.key
           gpg --batch --import private.key
           gpg -abs -u "${{ secrets.GIT_USER_EMAIL }}" -o Release.gpg Release
 
