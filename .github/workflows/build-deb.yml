@@ -1,14 +1,43 @@
-- name: Build .deb manually
-  run: |
-    mkdir -p pkg/DEBIAN
-    mkdir -p pkg/usr/bin
+name: Build Multilarm APT
 
-    cp Binaries/linux-arm64/* pkg/usr/bin/
-    cp Binaries/multilarmservice.sh pkg/usr/bin/
-    cp Binaries/multilarminstall.sh pkg/usr/bin/
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
-    chmod +x pkg/usr/bin/*
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    printf "Package: multilarm\nVersion: 1.0-1\nSection: utils\nPriority: optional\nArchitecture: arm64\nMaintainer: Ali Muhammad <you@email.com>\nDescription: Multilarm alarm system for Raspberry Pi\n" > pkg/DEBIAN/control
+    steps:
+      - uses: actions/checkout@v3
 
-    dpkg-deb --build pkg
+      - name: Build deb package
+        run: |
+          mkdir -p pkg/DEBIAN
+          mkdir -p pkg/usr/bin
+
+          cp Binaries/linux-arm64/* pkg/usr/bin/
+          cp Binaries/multilarmservice.sh pkg/usr/bin/
+          cp Binaries/multilarminstall.sh pkg/usr/bin/
+
+          chmod +x pkg/usr/bin/*
+
+          printf "Package: multilarm\nVersion: 1.0-1\nSection: utils\nPriority: optional\nArchitecture: arm64\nMaintainer: Ali Muhammad <you@email.com>\nDescription: Multilarm alarm system for Raspberry Pi\n" > pkg/DEBIAN/control
+
+          dpkg-deb --build pkg
+
+      - name: Create APT repo
+        run: |
+          mkdir -p repo/pool
+          cp pkg.deb repo/pool/
+          cd repo
+          dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
+
+      - name: Publish
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          publish_branch: gh-pages
