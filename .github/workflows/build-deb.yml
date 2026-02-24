@@ -1,57 +1,14 @@
-name: Build and Publish Multilarm APT
+- name: Build .deb manually
+  run: |
+    mkdir -p pkg/DEBIAN
+    mkdir -p pkg/usr/bin
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+    cp Binaries/linux-arm64/* pkg/usr/bin/
+    cp Binaries/multilarmservice.sh pkg/usr/bin/
+    cp Binaries/multilarminstall.sh pkg/usr/bin/
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+    chmod +x pkg/usr/bin/*
 
-    steps:
-      - uses: actions/checkout@v3
+    printf "Package: multilarm\nVersion: 1.0-1\nSection: utils\nPriority: optional\nArchitecture: arm64\nMaintainer: Ali Muhammad <you@email.com>\nDescription: Multilarm alarm system for Raspberry Pi\n" > pkg/DEBIAN/control
 
-      - name: Install tools
-        run: |
-          sudo apt update
-          sudo apt install -y build-essential debhelper dpkg-dev fakeroot
-
-      - name: Create debian structure
-        run: |
-          mkdir -p debian/source
-          printf "3.0 (native)\n" > debian/source/format
-
-          printf "Source: multilarm\nSection: utils\nPriority: optional\nMaintainer: Ali Muhammad <you@email.com>\nBuild-Depends: debhelper-compat (= 13)\nStandards-Version: 4.6.2\nHomepage: https://github.com/AliMuhammadK62/Multilarm\n\nPackage: multilarm\nArchitecture: arm64\nDepends: \${misc:Depends}\nDescription: Multilarm alarm system software\n Multilarm provides alarm services.\n" > debian/control
-
-          printf "#!/usr/bin/make -f\n%%:\n\tdh \$@\n" > debian/rules
-          chmod +x debian/rules
-
-          printf "Binaries/linux-arm64/* usr/bin/\nBinaries/multilarmservice.sh usr/bin/\nBinaries/multilarminstall.sh usr/bin/\n" > debian/install
-
-          printf "multilarm (1.0-1) stable; urgency=medium\n\n  * Automated build\n\n -- Ali Muhammad <you@email.com>  $(date -R)\n" > debian/changelog
-
-      - name: Make executables
-        run: |
-          chmod +x Binaries/linux-arm64/*
-          chmod +x Binaries/multilarmservice.sh
-          chmod +x Binaries/multilarminstall.sh
-
-      - name: Build package
-        run: dpkg-buildpackage -us -uc -b
-
-      - name: Create APT repo
-        run: |
-          mkdir -p repo/pool
-          cp ../*.deb repo/pool/
-          cd repo
-          dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
-          apt-ftparchive release . > Release
-
-      - name: Publish
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./repo
-          publish_branch: gh-pages
+    dpkg-deb --build pkg
