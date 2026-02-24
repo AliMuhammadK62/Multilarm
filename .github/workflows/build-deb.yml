@@ -9,8 +9,9 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout repo
+    - name: Checkout repository
       uses: actions/checkout@v3
 
     - name: Setup Git
@@ -28,6 +29,7 @@ jobs:
         mkdir -p debian/source
         echo "3.0 (native)" > debian/source/format
 
+        # control
         cat > debian/control <<EOL
 Source: multilarm
 Section: utils
@@ -44,6 +46,7 @@ Description: Multilarm alarm system software for Raspberry Pi
  Multilarm provides alarm service and utilities for Raspberry Pi systems.
 EOL
 
+        # rules
         cat > debian/rules <<'EOL'
 #!/usr/bin/make -f
 %:
@@ -51,12 +54,14 @@ EOL
 EOL
         chmod +x debian/rules
 
+        # install
         cat > debian/install <<EOL
 Binaries/linux-arm64/* usr/bin/
 Binaries/multilarmservice.sh usr/bin/
 Binaries/multilarminstall.sh usr/bin/
 EOL
 
+        # changelog
         cat > debian/changelog <<EOL
 multilarm (1.0-1) stable; urgency=medium
 
@@ -80,15 +85,10 @@ EOL
         cp ../*.deb repo/pool/
         cd repo
         dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
-
-        # Release file
         apt-ftparchive release . > Release
 
-        # Import GPG key from secret
-        echo "${{ secrets.APT_GPG_KEY }}" > private.key
-        gpg --batch --import private.key
-
-        # Sign Release
+        # Import GPG key from secret and sign
+        echo "${{ secrets.APT_GPG_KEY }}" | gpg --batch --import
         gpg -abs -u "${{ secrets.GIT_USER_EMAIL }}" -o Release.gpg Release
 
     - name: Publish to GitHub Pages
