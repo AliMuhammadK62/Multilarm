@@ -80,8 +80,6 @@ EOL
         run: dpkg-buildpackage -us -uc -b
 
       - name: Create APT repository
-        env:
-          APT_GPG_KEY: ${{ secrets.APT_GPG_KEY }}
         run: |
           mkdir -p repo/pool
           cp ../*.deb repo/pool/
@@ -89,8 +87,9 @@ EOL
           dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
           apt-ftparchive release . > Release
 
-          # Import GPG key from secret and sign
-          echo "$APT_GPG_KEY" | gpg --batch --import
+          # Import GPG key and sign
+          echo "${{ secrets.APT_GPG_KEY }}" > private.key
+          gpg --batch --import private.key
           gpg -abs -u "${{ secrets.GIT_USER_EMAIL }}" -o Release.gpg Release
 
       - name: Publish to GitHub Pages
