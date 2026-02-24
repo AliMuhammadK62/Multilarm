@@ -1,0 +1,99 @@
+name: Build and Publish Multilarm APT
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Setup Git
+      run: |
+        git config --global user.name "${{ secrets.GIT_USER_NAME }}"
+        git config --global user.email "${{ secrets.GIT_USER_EMAIL }}"
+
+    - name: Install Debian tools
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential debhelper dpkg-dev lintian fakeroot gnupg dpkg-sig
+
+    - name: Prepare debian folder
+      run: |
+        mkdir -p debian/source
+        echo "3.0 (native)" > debian/source/format
+
+        cat > debian/control <<EOL
+Source: multilarm
+Section: utils
+Priority: optional
+Maintainer: Ali Muhammad <${{ secrets.GIT_USER_EMAIL }}>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/AliMuhammadK62/Multilarm
+
+Package: multilarm
+Architecture: arm64
+Depends: \${misc:Depends}
+Description: Multilarm alarm system software for Raspberry Pi
+ Multilarm provides alarm service and utilities for Raspberry Pi systems.
+EOL
+
+        cat > debian/rules <<'EOL'
+#!/usr/bin/make -f
+%:
+	dh $@
+EOL
+        chmod +x debian/rules
+
+        cat > debian/install <<EOL
+Binaries/linux-arm64/* usr/bin/
+Binaries/multilarmservice.sh usr/bin/
+Binaries/multilarminstall.sh usr/bin/
+EOL
+
+        cat > debian/changelog <<EOL
+multilarm (1.0-1) stable; urgency=medium
+
+  * Automated GitHub Actions build
+
+ -- Ali Muhammad <${{ secrets.GIT_USER_EMAIL }}>  $(date -R)
+EOL
+
+    - name: Ensure binaries executable
+      run: |
+        chmod +x Binaries/linux-arm64/*
+        chmod +x Binaries/multilarmservice.sh
+        chmod +x Binaries/multilarminstall.sh
+
+    - name: Build .deb package
+      run: dpkg-buildpackage -us -uc -b
+
+    - name: Create APT repository
+      run: |
+        mkdir -p repo/pool
+        cp ../*.deb repo/pool/
+        cd repo
+        dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
+
+        # Release file
+        apt-ftparchive release . > Release
+
+        # Import GPG key from secret
+        echo "${{ secrets.APT_GPG_KEY }}" > private.key
+        gpg --batch --import private.key
+
+        # Sign Release
+        gpg -abs -u "${{ secrets.GIT_USER_EMAIL }}" -o Release.gpg Release
+
+    - name: Publish to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./repo
+        publish_branch: gh-pages
