@@ -1,0 +1,14 @@
+Copyright (c) 2026 Ali Muhammad
+
+This software is proprietary.
+
+Permission is granted to use this software for personal,
+non-commercial purposes only.
+
+Commercial use, distribution, modification, sublicensing,
+or integration into commercial products requires a separate
+commercial license agreement.
+
+To obtain a commercial license, contact: alimuhammadk62@gmail.com
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

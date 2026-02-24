@@ -1,0 +1,220 @@
+#bash command to install: sudo curl -s -L https://bit.ly/RPiConfig-BTAudio | bash
+#!/bin/bash
+
+set -e
+
+echo "===== Raspberry Pi Root PulseAudio + Bluetooth Setup ====="
+
+if [ "$EUID" -ne 0 ]; then
+  echo "Run this script as root:"
+  echo "sudo bash $0"
+  exit 1
+fi
+
+echo "Updating system..."
+apt update
+apt upgrade -y
+
+echo "Removing PipeWire if present..."
+systemctl --global disable pipewire.service 2>/dev/null || true
+systemctl --global disable pipewire-pulse.service 2>/dev/null || true
+apt purge -y pipewire pipewire-pulse 2>/dev/null || true
+
+echo "Installing required packages..."
+apt install -y \
+  pulseaudio \
+  pulseaudio-module-bluetooth \
+  pulseaudio-utils \
+  bluez \
+  bluez-tools \
+  bluetooth \
+  pi-bluetooth \
+  rfkill \
+  alsa-utils \
+  dbus
+
+echo "Enabling Bluetooth service..."
+systemctl enable bluetooth
+systemctl restart bluetooth
+
+rfkill unblock bluetooth
+
+echo "Enabling Bluetooth auto power..."
+if grep -q "^#AutoEnable=false" /etc/bluetooth/main.conf; then
+  sed -i 's/#AutoEnable=false/AutoEnable=true/' /etc/bluetooth/main.conf
+elif grep -q "^AutoEnable=false" /etc/bluetooth/main.conf; then
+  sed -i 's/AutoEnable=false/AutoEnable=true/' /etc/bluetooth/main.conf
+fi
+
+systemctl restart bluetooth
+
+echo "Disabling per-user PulseAudio..."
+systemctl --global disable pulseaudio.service 2>/dev/null || true
+systemctl --global disable pulseaudio.socket 2>/dev/null || true
+
+echo "Configuring PulseAudio system-wide..."
+
+cat > /etc/pulse/system.pa <<EOF
+#!/usr/bin/pulseaudio -nF
+
+load-module module-device-restore
+load-module module-stream-restore
+load-module module-card-restore
+
+load-module module-native-protocol-unix auth-anonymous=1
+
+load-module module-bluetooth-policy
+load-module module-bluetooth-discover
+
+load-module module-udev-detect
+load-module module-default-device-restore
+load-module module-always-sink
+load-module module-intended-roles
+
+set-default-sink auto_null
+EOF
+
+sed -i 's/; system-instance = no/system-instance = yes/' /etc/pulse/daemon.conf 2>/dev/null || true
+sed -i 's/; daemonize = no/daemonize = yes/' /etc/pulse/daemon.conf 2>/dev/null || true
+sed -i 's/; allow-module-loading = yes/allow-module-loading = yes/' /etc/pulse/daemon.conf 2>/dev/null || true
+
+echo "Creating PulseAudio system service..."
+
+cat > /etc/systemd/system/pulseaudio.service <<EOF
+[Unit]
+Description=PulseAudio system server (root mode)
+After=bluetooth.service network.target sound.target
+Requires=bluetooth.service
+
+[Service]
+ExecStart=/usr/bin/pulseaudio --system --disallow-exit --disallow-module-loading=no
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable pulseaudio.service
+systemctl restart pulseaudio.service
+
+sleep 3
+
+echo ""
+echo "===== Scanning for Bluetooth Devices ====="
+
+bluetoothctl <<EOF
+power on
+agent on
+default-agent
+scan on
+EOF
+
+echo "Scanning for 15 seconds..."
+sleep 15
+
+bluetoothctl scan off
+
+echo ""
+bluetoothctl devices
+echo ""
+
+read -p "Enter MAC address of device to pair: " DEVICE_MAC
+
+bluetoothctl <<EOF
+pair $DEVICE_MAC
+trust $DEVICE_MAC
+connect $DEVICE_MAC
+EOF
+
+sleep 5
+
+SINK_NAME=$(pactl list short sinks | grep bluez | awk '{print $2}' | head -n1)
+
+if [ -n "$SINK_NAME" ]; then
+  pactl set-default-sink "$SINK_NAME"
+  echo "Default sink set to $SINK_NAME"
+else
+  echo "WARNING: Bluetooth sink not detected automatically."
+fi
+
+echo "Creating Bluetooth auto-reconnect loop..."
+
+cat > /usr/local/bin/bt-auto-reconnect.sh <<EOF
+#!/bin/bash
+DEVICE="$DEVICE_MAC"
+
+while true; do
+    sleep 15
+    if ! bluetoothctl info \$DEVICE | grep -q "Connected: yes"; then
+        echo "Reconnecting \$DEVICE..."
+        echo -e "connect \$DEVICE\nquit" | bluetoothctl
+    fi
+done
+EOF
+
+chmod +x /usr/local/bin/bt-auto-reconnect.sh
+
+cat > /etc/systemd/system/bt-auto-reconnect.service <<EOF
+[Unit]
+Description=Bluetooth Auto Reconnect Service
+After=bluetooth.service pulseaudio.service
+Requires=bluetooth.service pulseaudio.service
+
+[Service]
+ExecStart=/usr/local/bin/bt-auto-reconnect.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable bt-auto-reconnect.service
+systemctl restart bt-auto-reconnect.service
+
+echo "Checking for multilarm.service..."
+
+SERVICE_NAME="multilarm.service"
+
+UNIT_PATH=$(systemctl show -p FragmentPath $SERVICE_NAME 2>/dev/null | cut -d= -f2)
+
+if [ -n "$UNIT_PATH" ] && [ -f "$UNIT_PATH" ]; then
+
+    echo "multilarm.service found at $UNIT_PATH"
+
+    existing_after=$(grep '^After=' "$UNIT_PATH" | head -n1 | cut -d= -f2)
+    existing_requires=$(grep '^Requires=' "$UNIT_PATH" | head -n1 | cut -d= -f2)
+
+    combined_after="$existing_after bluetooth.service pulseaudio.service"
+    combined_requires="$existing_requires bluetooth.service pulseaudio.service"
+
+    # remove duplicates
+    combined_after=$(echo $combined_after | tr ' ' '\n' | sort -u | tr '\n' ' ')
+    combined_requires=$(echo $combined_requires | tr ' ' '\n' | sort -u | tr '\n' ' ')
+
+    mkdir -p /etc/systemd/system/$SERVICE_NAME.d
+
+    cat > /etc/systemd/system/$SERVICE_NAME.d/override.conf <<EOF
+[Unit]
+After=$combined_after
+Requires=$combined_requires
+EOF
+
+    systemctl daemon-reload
+
+    echo "multilarm.service override created."
+    echo "Final After= $combined_after"
+else
+    echo "multilarm.service not found. Skipping."
+fi
+
+echo ""
+echo "===== SETUP COMPLETE ====="
+echo ""
+echo "Reboot now:"
+echo "sudo reboot"
+echo ""
+echo "PulseAudio running in ROOT system mode."
+echo "Bluetooth auto-connect enabled."
+echo "multilarm.service dependencies appended safely."
