@@ -9,32 +9,25 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Git
-        run: |
-          git config --global user.name "${{ secrets.GIT_USER_NAME }}"
-          git config --global user.email "${{ secrets.GIT_USER_EMAIL }}"
-
       - name: Install Debian tools
         run: |
           sudo apt update
-          sudo apt install -y build-essential debhelper dpkg-dev lintian fakeroot gnupg dpkg-sig
+          sudo apt install -y build-essential debhelper dpkg-dev lintian fakeroot
 
       - name: Prepare debian folder
         run: |
           mkdir -p debian/source
           echo "3.0 (native)" > debian/source/format
 
-          # control
           cat > debian/control <<EOL
 Source: multilarm
 Section: utils
 Priority: optional
-Maintainer: Ali Muhammad <${{ secrets.GIT_USER_EMAIL }}>
+Maintainer: Ali Muhammad <you@email.com>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
 Homepage: https://github.com/AliMuhammadK62/Multilarm
@@ -46,7 +39,6 @@ Description: Multilarm alarm system software for Raspberry Pi
  Multilarm provides alarm service and utilities for Raspberry Pi systems.
 EOL
 
-          # rules
           cat > debian/rules <<'EOL'
 #!/usr/bin/make -f
 %:
@@ -54,23 +46,21 @@ EOL
 EOL
           chmod +x debian/rules
 
-          # install
           cat > debian/install <<EOL
 Binaries/linux-arm64/* usr/bin/
 Binaries/multilarmservice.sh usr/bin/
 Binaries/multilarminstall.sh usr/bin/
 EOL
 
-          # changelog
           cat > debian/changelog <<EOL
 multilarm (1.0-1) stable; urgency=medium
 
   * Automated GitHub Actions build
 
- -- Ali Muhammad <${{ secrets.GIT_USER_EMAIL }}>  $(date -R)
+ -- Ali Muhammad <you@email.com>  $(date -R)
 EOL
 
-      - name: Ensure binaries executable
+      - name: Make binaries executable
         run: |
           chmod +x Binaries/linux-arm64/*
           chmod +x Binaries/multilarmservice.sh
@@ -79,18 +69,13 @@ EOL
       - name: Build .deb package
         run: dpkg-buildpackage -us -uc -b
 
-      - name: Create APT repository
+      - name: Create APT repo
         run: |
           mkdir -p repo/pool
           cp ../*.deb repo/pool/
           cd repo
           dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
           apt-ftparchive release . > Release
-
-          # Import GPG key from base64 secret and sign
-          echo "${{ secrets.APT_GPG_KEY_B64 }}" | base64 --decode > private.key
-          gpg --batch --import private.key
-          gpg -abs -u "${{ secrets.GIT_USER_EMAIL }}" -o Release.gpg Release
 
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
