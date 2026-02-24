@@ -7,66 +7,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-publish:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
 
-      - name: Install Debian tools
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install tools
         run: |
           sudo apt update
-          sudo apt install -y build-essential debhelper dpkg-dev lintian fakeroot
+          sudo apt install -y build-essential debhelper dpkg-dev fakeroot
 
-      - name: Prepare debian folder
+      - name: Create debian structure
         run: |
           mkdir -p debian/source
-          echo "3.0 (native)" > debian/source/format
+          printf "3.0 (native)\n" > debian/source/format
 
-          cat > debian/control <<EOL
-Source: multilarm
-Section: utils
-Priority: optional
-Maintainer: Ali Muhammad <you@email.com>
-Build-Depends: debhelper-compat (= 13)
-Standards-Version: 4.6.2
-Homepage: https://github.com/AliMuhammadK62/Multilarm
+          printf "Source: multilarm\nSection: utils\nPriority: optional\nMaintainer: Ali Muhammad <you@email.com>\nBuild-Depends: debhelper-compat (= 13)\nStandards-Version: 4.6.2\nHomepage: https://github.com/AliMuhammadK62/Multilarm\n\nPackage: multilarm\nArchitecture: arm64\nDepends: \${misc:Depends}\nDescription: Multilarm alarm system software\n Multilarm provides alarm services.\n" > debian/control
 
-Package: multilarm
-Architecture: arm64
-Depends: \${misc:Depends}
-Description: Multilarm alarm system software for Raspberry Pi
- Multilarm provides alarm service and utilities for Raspberry Pi systems.
-EOL
-
-          cat > debian/rules <<'EOL'
-#!/usr/bin/make -f
-%:
-	dh $@
-EOL
+          printf "#!/usr/bin/make -f\n%%:\n\tdh \$@\n" > debian/rules
           chmod +x debian/rules
 
-          cat > debian/install <<EOL
-Binaries/linux-arm64/* usr/bin/
-Binaries/multilarmservice.sh usr/bin/
-Binaries/multilarminstall.sh usr/bin/
-EOL
+          printf "Binaries/linux-arm64/* usr/bin/\nBinaries/multilarmservice.sh usr/bin/\nBinaries/multilarminstall.sh usr/bin/\n" > debian/install
 
-          cat > debian/changelog <<EOL
-multilarm (1.0-1) stable; urgency=medium
+          printf "multilarm (1.0-1) stable; urgency=medium\n\n  * Automated build\n\n -- Ali Muhammad <you@email.com>  $(date -R)\n" > debian/changelog
 
-  * Automated GitHub Actions build
-
- -- Ali Muhammad <you@email.com>  $(date -R)
-EOL
-
-      - name: Make binaries executable
+      - name: Make executables
         run: |
           chmod +x Binaries/linux-arm64/*
           chmod +x Binaries/multilarmservice.sh
           chmod +x Binaries/multilarminstall.sh
 
-      - name: Build .deb package
+      - name: Build package
         run: dpkg-buildpackage -us -uc -b
 
       - name: Create APT repo
@@ -77,7 +49,7 @@ EOL
           dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
           apt-ftparchive release . > Release
 
-      - name: Publish to GitHub Pages
+      - name: Publish
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
