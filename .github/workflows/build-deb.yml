@@ -1,43 +1,156 @@
-name: Build Multilarm APT
+name: Build & Publish Multilarm APT Repository
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+env:
+  PACKAGE_NAME: multilarm
+  ARCH: arm64
+  DIST: stable
+  COMPONENT: main
+
 jobs:
-  build:
+  build-and-publish:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Build deb package
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Install packaging tools
         run: |
-          mkdir -p pkg/DEBIAN
-          mkdir -p pkg/usr/bin
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev gnupg fakeroot
 
-          cp Binaries/linux-arm64/* pkg/usr/bin/
-          cp Binaries/multilarmservice.sh pkg/usr/bin/
-          cp Binaries/multilarminstall.sh pkg/usr/bin/
-
-          chmod +x pkg/usr/bin/*
-
-          printf "Package: multilarm\nVersion: 1.0-1\nSection: utils\nPriority: optional\nArchitecture: arm64\nMaintainer: Ali Muhammad <you@email.com>\nDescription: Multilarm alarm system for Raspberry Pi\n" > pkg/DEBIAN/control
-
-          dpkg-deb --build pkg
-
-      - name: Create APT repo
+      # ------------------------------------------------
+      # BUILD DEB PACKAGE
+      # ------------------------------------------------
+      - name: Create package structure
         run: |
-          mkdir -p repo/pool
-          cp pkg.deb repo/pool/
-          cd repo
-          dpkg-scanpackages pool /dev/null | gzip -9c > Packages.gz
+          mkdir -p build/${PACKAGE_NAME}/DEBIAN
+          mkdir -p build/${PACKAGE_NAME}/usr/local/bin
+          mkdir -p build/${PACKAGE_NAME}/usr/local/lib
+          mkdir -p build/${PACKAGE_NAME}/etc/ld.so.conf.d
 
-      - name: Publish
+      - name: Copy prebuilt binaries
+        run: |
+          cp binaries/Multilarm build/${PACKAGE_NAME}/usr/local/bin/
+          cp binaries/libbass*.so build/${PACKAGE_NAME}/usr/local/lib/
+          chmod +x build/${PACKAGE_NAME}/usr/local/bin/Multilarm
+
+      - name: Create control file
+        run: |
+          cat <<EOF > build/${PACKAGE_NAME}/DEBIAN/control
+          Package: ${PACKAGE_NAME}
+          Version: ${VERSION}
+          Section: sound
+          Priority: optional
+          Architecture: ${ARCH}
+          Maintainer: Multilarm <support@zayeed.org>
+          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins
+          Description: Multilarm Audio Alarm System
+           Multilarm is a .NET-based audio alarm system.
+          EOF
+
+      - name: Create postinst script
+        run: |
+          cat <<'EOF' > build/${PACKAGE_NAME}/DEBIAN/postinst
+          #!/bin/bash
+          set -e
+
+          echo "Installing .NET runtime if missing..."
+          if ! command -v dotnet &> /dev/null; then
+            wget https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
+            chmod +x /tmp/dotnet-install.sh
+            /tmp/dotnet-install.sh --version latest --runtime dotnet
+            rm /tmp/dotnet-install.sh
+          fi
+
+          echo "/usr/local/lib" > /etc/ld.so.conf.d/multilarm.conf
+          ldconfig
+
+          chmod 755 /usr/local/bin/Multilarm
+          echo "Multilarm installation complete."
+          EOF
+
+          chmod 755 build/${PACKAGE_NAME}/DEBIAN/postinst
+
+      - name: Build .deb
+        run: |
+          dpkg-deb --build build/${PACKAGE_NAME}
+          mkdir repo
+          mv build/${PACKAGE_NAME}.deb repo/${PACKAGE_NAME}_${VERSION}_${ARCH}.deb
+
+      # ------------------------------------------------
+      # CREATE APT REPOSITORY STRUCTURE
+      # ------------------------------------------------
+      - name: Create APT repo structure
+        run: |
+          mkdir -p repo/dists/${DIST}/${COMPONENT}/binary-${ARCH}
+          mkdir -p repo/pool/${COMPONENT}
+
+          mv repo/*.deb repo/pool/${COMPONENT}/
+
+          dpkg-scanpackages repo/pool > repo/dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages
+          gzip -k repo/dists/${DIST}/${COMPONENT}/binary-${ARCH}/Packages
+
+      # ------------------------------------------------
+      # GPG SIGNING
+      # ------------------------------------------------
+      - name: Import GPG key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          echo RELOADAGENT | gpg-connect-agent
+
+      - name: Create Release file
+        run: |
+          cd repo/dists/${DIST}
+          cat <<EOF > Release
+          Origin: Multilarm
+          Label: Multilarm
+          Suite: ${DIST}
+          Codename: ${DIST}
+          Architectures: ${ARCH}
+          Components: ${COMPONENT}
+          Description: Multilarm APT Repository
+          EOF
+
+          apt-ftparchive release . >> Release
+
+      - name: Sign repository
+        run: |
+          cd repo/dists/${DIST}
+          gpg --default-key "${{ secrets.GPG_KEY_ID }}" \
+              --batch --yes --pinentry-mode loopback \
+              --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+              -abs -o Release.gpg Release
+
+          gpg --default-key "${{ secrets.GPG_KEY_ID }}" \
+              --batch --yes --pinentry-mode loopback \
+              --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+              --clearsign -o InRelease Release
+
+      - name: Export public key
+        run: |
+          gpg --armor --export "${{ secrets.GPG_KEY_ID }}" > repo/public.key
+
+      # ------------------------------------------------
+      # DEPLOY TO GITHUB PAGES
+      # ------------------------------------------------
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./repo
+          publish_dir: repo
           publish_branch: gh-pages
