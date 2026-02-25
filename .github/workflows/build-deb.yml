@@ -1,4 +1,4 @@
-name: Build & Publish Multilarm APT Repository
+name: Build & Publish Multilarm APT Repository (Store + Commit + Artifact)
 
 on:
   push:
@@ -13,6 +13,7 @@ env:
   PACKAGE_NAME: multilarm
   DIST: stable
   COMPONENT: main
+  SAMPLERES_URL: https://zayeed.org/multilarm/Binaries/SampleRes.zip
 
 jobs:
   build-and-publish:
@@ -21,6 +22,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
       - name: Extract version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
@@ -28,10 +31,18 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev gnupg fakeroot apt-utils unzip
+          sudo apt-get install -y dpkg-dev gnupg fakeroot apt-utils unzip wget git
 
       ############################################################
-      # BUILD ARM64
+      # CLEAN OLD DEB FILES
+      ############################################################
+      - name: Remove previous DEB files
+        run: |
+          rm -rf Binaries/deb
+          mkdir -p Binaries/deb
+
+      ############################################################
+      # BUILD ARM64 PACKAGE
       ############################################################
       - name: Build ARM64 package
         run: |
@@ -41,9 +52,13 @@ jobs:
           mkdir -p build-arm64/opt/multilarm
 
           cp Binaries/linux-arm64/Multilarm build-arm64/usr/local/bin/
+          chmod +x build-arm64/usr/local/bin/Multilarm
           cp Binaries/linux-arm64/libbass-arm64/*.so build-arm64/usr/local/lib/
 
-          chmod +x build-arm64/usr/local/bin/Multilarm
+          # Copy local SampleRes if exists
+          if [ -d "SampleRes" ]; then
+            cp -r SampleRes/* build-arm64/opt/multilarm/
+          fi
 
           cat <<EOF > build-arm64/DEBIAN/control
           Package: ${PACKAGE_NAME}
@@ -52,9 +67,9 @@ jobs:
           Priority: optional
           Architecture: arm64
           Maintainer: Multilarm <support@zayeed.org>
-          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins
-          Description: Multilarm Audio Alarm System (Self-contained)
-           Multilarm is a self-contained .NET audio alarm system.
+          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins, wget, unzip
+          Description: Multilarm Audio Alarm System (Offline)
+           Multilarm is a fully self-contained .NET audio alarm system.
           EOF
 
           cat <<'EOF' > build-arm64/DEBIAN/postinst
@@ -62,23 +77,41 @@ jobs:
           set -e
           echo "/usr/local/lib" > /etc/ld.so.conf.d/multilarm.conf
           ldconfig
+          chmod -R 755 /opt/multilarm
 
-          if [ ! -d "/opt/multilarm/Adhan" ]; then
+          # Download SampleRes if missing
+          if [ ! -d "/opt/multilarm/SampleRes" ]; then
+            mkdir -p /opt/multilarm/SampleRes
             wget https://zayeed.org/multilarm/Binaries/SampleRes.zip -O /tmp/SampleRes.zip
-            unzip -o /tmp/SampleRes.zip -d /opt/multilarm/
+            unzip -o /tmp/SampleRes.zip -d /opt/multilarm/SampleRes
             rm /tmp/SampleRes.zip
+            chmod -R 755 /opt/multilarm/SampleRes
           fi
-
-          chmod 755 /usr/local/bin/Multilarm
-          chmod 755 /usr/local/lib/libbass*.so
           EOF
-
           chmod 755 build-arm64/DEBIAN/postinst
 
-          dpkg-deb --build build-arm64 multilarm_${VERSION}_arm64.deb
+          cat <<'EOF' > build-arm64/DEBIAN/prerm
+          #!/bin/bash
+          set -e
+          pkill -f Multilarm || true
+          EOF
+          chmod 755 build-arm64/DEBIAN/prerm
+
+          cat <<'EOF' > build-arm64/DEBIAN/postrm
+          #!/bin/bash
+          set -e
+          if [ "$1" = "purge" ]; then
+            rm -rf /opt/multilarm
+            rm -f /etc/ld.so.conf.d/multilarm.conf
+            ldconfig
+          fi
+          EOF
+          chmod 755 build-arm64/DEBIAN/postrm
+
+          dpkg-deb --build build-arm64 Binaries/deb/multilarm_${VERSION}_arm64.deb
 
       ############################################################
-      # BUILD ARMHF
+      # BUILD ARMHF PACKAGE
       ############################################################
       - name: Build ARMHF package
         run: |
@@ -88,9 +121,13 @@ jobs:
           mkdir -p build-armhf/opt/multilarm
 
           cp Binaries/linux-arm/Multilarm build-armhf/usr/local/bin/
+          chmod +x build-armhf/usr/local/bin/Multilarm
           cp Binaries/linux-arm/libbass-arm/*.so build-armhf/usr/local/lib/
 
-          chmod +x build-armhf/usr/local/bin/Multilarm
+          # Copy local SampleRes if exists
+          if [ -d "SampleRes" ]; then
+            cp -r SampleRes/* build-armhf/opt/multilarm/
+          fi
 
           cat <<EOF > build-armhf/DEBIAN/control
           Package: ${PACKAGE_NAME}
@@ -99,9 +136,9 @@ jobs:
           Priority: optional
           Architecture: armhf
           Maintainer: Multilarm <support@zayeed.org>
-          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins
-          Description: Multilarm Audio Alarm System (Self-contained)
-           Multilarm is a self-contained .NET audio alarm system.
+          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins, wget, unzip
+          Description: Multilarm Audio Alarm System (Offline)
+           Multilarm is a fully self-contained .NET audio alarm system.
           EOF
 
           cat <<'EOF' > build-armhf/DEBIAN/postinst
@@ -109,23 +146,67 @@ jobs:
           set -e
           echo "/usr/local/lib" > /etc/ld.so.conf.d/multilarm.conf
           ldconfig
+          chmod -R 755 /opt/multilarm
 
-          if [ ! -d "/opt/multilarm/Adhan" ]; then
+          # Download SampleRes if missing
+          if [ ! -d "/opt/multilarm/SampleRes" ]; then
+            mkdir -p /opt/multilarm/SampleRes
             wget https://zayeed.org/multilarm/Binaries/SampleRes.zip -O /tmp/SampleRes.zip
-            unzip -o /tmp/SampleRes.zip -d /opt/multilarm/
+            unzip -o /tmp/SampleRes.zip -d /opt/multilarm/SampleRes
             rm /tmp/SampleRes.zip
+            chmod -R 755 /opt/multilarm/SampleRes
           fi
-
-          chmod 755 /usr/local/bin/Multilarm
-          chmod 755 /usr/local/lib/libbass*.so
           EOF
-
           chmod 755 build-armhf/DEBIAN/postinst
 
-          dpkg-deb --build build-armhf multilarm_${VERSION}_armhf.deb
+          cat <<'EOF' > build-armhf/DEBIAN/prerm
+          #!/bin/bash
+          set -e
+          pkill -f Multilarm || true
+          EOF
+          chmod 755 build-armhf/DEBIAN/prerm
+
+          cat <<'EOF' > build-armhf/DEBIAN/postrm
+          #!/bin/bash
+          set -e
+          if [ "$1" = "purge" ]; then
+            rm -rf /opt/multilarm
+            rm -f /etc/ld.so.conf.d/multilarm.conf
+            ldconfig
+          fi
+          EOF
+          chmod 755 build-armhf/DEBIAN/postrm
+
+          dpkg-deb --build build-armhf Binaries/deb/multilarm_${VERSION}_armhf.deb
 
       ############################################################
-      # CREATE REPO
+      # LIST DEB FILES FOR DEBUG
+      ############################################################
+      - name: List DEB files
+        run: ls -l Binaries/deb
+
+      ############################################################
+      # COMMIT DEB FILES TO REPO
+      ############################################################
+      - name: Commit DEB files
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git add Binaries/deb/*.deb
+          git commit -m "Add built DEB files for v${VERSION}" || echo "No changes to commit"
+          git push origin main
+
+      ############################################################
+      # UPLOAD ARTIFACTS
+      ############################################################
+      - name: Upload DEB artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: multilarm-deb
+          path: Binaries/deb/*.deb
+
+      ############################################################
+      # CREATE & SIGN APT REPO
       ############################################################
       - name: Create APT repository
         run: |
@@ -133,8 +214,8 @@ jobs:
           mkdir -p repo/dists/${DIST}/${COMPONENT}/binary-arm64
           mkdir -p repo/dists/${DIST}/${COMPONENT}/binary-armhf
 
-          mv multilarm_*_arm64.deb repo/pool/${COMPONENT}/
-          mv multilarm_*_armhf.deb repo/pool/${COMPONENT}/
+          mv Binaries/deb/multilarm_*_arm64.deb repo/pool/${COMPONENT}/
+          mv Binaries/deb/multilarm_*_armhf.deb repo/pool/${COMPONENT}/
 
           dpkg-scanpackages repo/pool > repo/dists/${DIST}/${COMPONENT}/binary-arm64/Packages
           cp repo/dists/${DIST}/${COMPONENT}/binary-arm64/Packages repo/dists/${DIST}/${COMPONENT}/binary-armhf/Packages
@@ -142,13 +223,10 @@ jobs:
           gzip -k repo/dists/${DIST}/${COMPONENT}/binary-arm64/Packages
           gzip -k repo/dists/${DIST}/${COMPONENT}/binary-armhf/Packages
 
-      ############################################################
-      # SIGN
-      ############################################################
-      - name: Import GPG
+      - name: Import GPG key
         run: echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
 
-      - name: Create Release
+      - name: Create Release file
         run: |
           cd repo/dists/${DIST}
           cat <<EOF > Release
@@ -162,7 +240,7 @@ jobs:
           EOF
           apt-ftparchive release . >> Release
 
-      - name: Sign
+      - name: Sign repository
         run: |
           cd repo/dists/${DIST}
           gpg --batch --yes --pinentry-mode loopback \
@@ -173,10 +251,10 @@ jobs:
               --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
               --clearsign -o InRelease Release
 
-      - name: Export Public Key
+      - name: Export public key
         run: gpg --armor --export > repo/public.key
 
-      - name: Deploy
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
