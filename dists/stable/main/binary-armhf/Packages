@@ -1,13 +1,13 @@
 Package: multilarm
-Version: 1.2028
-Architecture: arm64
+Version: 1.2029
+Architecture: armhf
 Maintainer: Multilarm <support@zayeed.org>
 Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins
-Filename: repo/pool/main/multilarm_1.2028_arm64.deb
-Size: 5710498
-MD5sum: ca1d844be670c86ccf7cc7aa8b503589
-SHA1: 4fbd1cf3d4f813effd329746dc65b6698f754060
-SHA256: cc2ecfb7ef382942f2e7da3f0fcc58d3152b84531bcbccceeca11237b03ee1fb
+Filename: repo/pool/main/multilarm_1.2029_armhf.deb
+Size: 5562390
+MD5sum: feae797ba2b8e9cd52927908faded030
+SHA1: d867dac8cbe77ed9ac46296cec5a8b0bfdedc464
+SHA256: bf2a399b8da47d0c6621129c1399fb2a1402ccfd559369c55a908250f16e93a7
 Section: sound
 Priority: optional
 Description: Multilarm Audio Alarm System (Self-contained)
