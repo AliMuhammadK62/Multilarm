@@ -42,6 +42,15 @@ jobs:
           mkdir -p Binaries/deb
 
       ############################################################
+      # DOWNLOAD SampleRes
+      ############################################################
+      - name: Download SampleRes
+        run: |
+          wget $SAMPLERES_URL -O SampleRes.zip
+          unzip -o SampleRes.zip -d SampleRes
+          rm SampleRes.zip
+
+      ############################################################
       # BUILD ARM64 PACKAGE
       ############################################################
       - name: Build ARM64 package
@@ -54,11 +63,7 @@ jobs:
           cp Binaries/linux-arm64/Multilarm build-arm64/usr/local/bin/
           chmod +x build-arm64/usr/local/bin/Multilarm
           cp Binaries/linux-arm64/libbass-arm64/*.so build-arm64/usr/local/lib/
-
-          # Copy local SampleRes if exists
-          if [ -d "SampleRes" ]; then
-            cp -r SampleRes/* build-arm64/opt/multilarm/
-          fi
+          cp -r SampleRes/* build-arm64/opt/multilarm/
 
           cat <<EOF > build-arm64/DEBIAN/control
           Package: ${PACKAGE_NAME}
@@ -67,7 +72,7 @@ jobs:
           Priority: optional
           Architecture: arm64
           Maintainer: Multilarm <support@zayeed.org>
-          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins, wget, unzip
+          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins
           Description: Multilarm Audio Alarm System (Offline)
            Multilarm is a fully self-contained .NET audio alarm system.
           EOF
@@ -78,15 +83,6 @@ jobs:
           echo "/usr/local/lib" > /etc/ld.so.conf.d/multilarm.conf
           ldconfig
           chmod -R 755 /opt/multilarm
-
-          # Download SampleRes if missing
-          if [ ! -d "/opt/multilarm/SampleRes" ]; then
-            mkdir -p /opt/multilarm/SampleRes
-            wget https://zayeed.org/multilarm/Binaries/SampleRes.zip -O /tmp/SampleRes.zip
-            unzip -o /tmp/SampleRes.zip -d /opt/multilarm/SampleRes
-            rm /tmp/SampleRes.zip
-            chmod -R 755 /opt/multilarm/SampleRes
-          fi
           EOF
           chmod 755 build-arm64/DEBIAN/postinst
 
@@ -123,11 +119,7 @@ jobs:
           cp Binaries/linux-arm/Multilarm build-armhf/usr/local/bin/
           chmod +x build-armhf/usr/local/bin/Multilarm
           cp Binaries/linux-arm/libbass-arm/*.so build-armhf/usr/local/lib/
-
-          # Copy local SampleRes if exists
-          if [ -d "SampleRes" ]; then
-            cp -r SampleRes/* build-armhf/opt/multilarm/
-          fi
+          cp -r SampleRes/* build-armhf/opt/multilarm/
 
           cat <<EOF > build-armhf/DEBIAN/control
           Package: ${PACKAGE_NAME}
@@ -136,7 +128,7 @@ jobs:
           Priority: optional
           Architecture: armhf
           Maintainer: Multilarm <support@zayeed.org>
-          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins, wget, unzip
+          Depends: zlib1g, libstdc++6, libicu-dev, libasound2-plugins
           Description: Multilarm Audio Alarm System (Offline)
            Multilarm is a fully self-contained .NET audio alarm system.
           EOF
@@ -147,15 +139,6 @@ jobs:
           echo "/usr/local/lib" > /etc/ld.so.conf.d/multilarm.conf
           ldconfig
           chmod -R 755 /opt/multilarm
-
-          # Download SampleRes if missing
-          if [ ! -d "/opt/multilarm/SampleRes" ]; then
-            mkdir -p /opt/multilarm/SampleRes
-            wget https://zayeed.org/multilarm/Binaries/SampleRes.zip -O /tmp/SampleRes.zip
-            unzip -o /tmp/SampleRes.zip -d /opt/multilarm/SampleRes
-            rm /tmp/SampleRes.zip
-            chmod -R 755 /opt/multilarm/SampleRes
-          fi
           EOF
           chmod 755 build-armhf/DEBIAN/postinst
 
@@ -192,9 +175,10 @@ jobs:
         run: |
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
+          git checkout -B main
           git add Binaries/deb/*.deb
           git commit -m "Add built DEB files for v${VERSION}" || echo "No changes to commit"
-          git push origin main
+          git push origin main --force
 
       ############################################################
       # UPLOAD ARTIFACTS
