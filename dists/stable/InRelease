@@ -1,0 +1,51 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Origin: Multilarm
+Label: Multilarm
+Suite: stable
+Codename: stable
+Architectures: arm64 armhf
+Components: main
+Description: Multilarm APT Repository
+Date: Wed, 25 Feb 2026 10:05:29 +0000
+MD5Sum:
+ 9ce0625b48f6e5ae5e8362f5dcd0dc5c              186 Release
+ e84da20ecaaaf334afedf382551880e3              535 main/binary-arm64/Packages
+ bd8bbf42035f845e8df91563023884bc              392 main/binary-arm64/Packages.gz
+ e84da20ecaaaf334afedf382551880e3              535 main/binary-armhf/Packages
+ bd8bbf42035f845e8df91563023884bc              392 main/binary-armhf/Packages.gz
+SHA1:
+ d729daa35600678885c5bc47ffcf72901e5a931c              186 Release
+ c462ebbf226cf9cd043688464acff248f8c5e983              535 main/binary-arm64/Packages
+ a980d9753e1220e85dec2144fb37d9dac4973d66              392 main/binary-arm64/Packages.gz
+ c462ebbf226cf9cd043688464acff248f8c5e983              535 main/binary-armhf/Packages
+ a980d9753e1220e85dec2144fb37d9dac4973d66              392 main/binary-armhf/Packages.gz
+SHA256:
+ 678025fd227f79a4b1ab31a60f45889f5a0f6f7dc180902b5fe78121fea722d1              186 Release
+ d6922ffe38d79bdbcff0f09c4cde386fd50447efb249e30edcb9e2351a98bdc5              535 main/binary-arm64/Packages
+ 086f97b297cc8802dd6604e53a8565cb4d2b66ffb9b0e23835c6f39863685e2c              392 main/binary-arm64/Packages.gz
+ d6922ffe38d79bdbcff0f09c4cde386fd50447efb249e30edcb9e2351a98bdc5              535 main/binary-armhf/Packages
+ 086f97b297cc8802dd6604e53a8565cb4d2b66ffb9b0e23835c6f39863685e2c              392 main/binary-armhf/Packages.gz
+SHA512:
+ 9b6704b76ca97de88ec5424a19d15d382e48aed8988190c8dfa0f6612d8e5a6ea70b798bca020c5239dfba303e334b41c2e3b29d28b29079482765066be53a1e              186 Release
+ 2260f589cb0872bbb59297c6071490dc81504893ecd4e6ccdc89f19777c9a2f2430f8e399da00acec7e056df0ab4f791fce42ca5042ed695b07f49882a33bedd              535 main/binary-arm64/Packages
+ 5123ea8688d194d037d9ef7a5d990f4f173187ce8b703399144d61907b24f9b89fa094e32ed579444f2054a0f3990dd6a9ec37f62321ebd8178123fa314a5b08              392 main/binary-arm64/Packages.gz
+ 2260f589cb0872bbb59297c6071490dc81504893ecd4e6ccdc89f19777c9a2f2430f8e399da00acec7e056df0ab4f791fce42ca5042ed695b07f49882a33bedd              535 main/binary-armhf/Packages
+ 5123ea8688d194d037d9ef7a5d990f4f173187ce8b703399144d61907b24f9b89fa094e32ed579444f2054a0f3990dd6a9ec37f62321ebd8178123fa314a5b08              392 main/binary-armhf/Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEuJRCpZq+mUcRoblMM22hytt1DrcFAmmeyWoACgkQM22hytt1
+DrcihRAAkqPL+3wg5bMQOcvk+PRvqIUi/YkiaTTTm4FP5kBwUoYJkZeHArE11GvP
+eZnYHWnr9AUs2qFe2kASU4pTOK6xafNLqrjYnVJNJglUuSR/fHqs+BF+o9FBOw2G
+5x0eH14ZUK+NOEO49kOUzc3LKRegDwFaCcs9j4P3QE2zzqiFjuOrcgGFtIBhqpJV
+QfRInlqweh/l8jZZrqGv+8abGrJAVW9xD7vIqUYFcZqKLX56HT5b+/qsn2U11tYI
+RCRSHjHc/6ZZWkqDwoGIKJPHrSX+kgk5ZYekGwK/vWICkVu0lEEAPUfY/gwRyily
+2IzMgHC239UsizP9Pt4gztjEGYj/JJyBWgwZleuotQQ9XqPlSSZfwSzdGicc4kKr
+1Ucy6XUC38HnIzmi5nTivk9BR/gdpCL0GwyQQrQ00I/OTjwbDpBIwmwOKU3+6Ffb
+UyHz0rBYO5LC+A/FEFe/EdNTWgfm95b6j0vhgKj6CxRoP/pJlmF6JUNwWeKfp1BC
+YddpAeWGO0kJFzwO5w0gONszbACQI+9Gm6XZdKiettMgC9Rea6Evuh+OEXGj/FXC
+s/rr7VhJf7zZz2MzYBayi/tnGrmFB+6JnO2iuTLhVa93z4DBy8DdHqQXijncJU+J
+9Hbub6Jmrgi88BHG7DQdD7yKPK83gUMeBqlok6SmY2lKi1dpeMM=
+=6wqP
+-----END PGP SIGNATURE-----
